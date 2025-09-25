@@ -731,7 +731,7 @@ class Puzzle:
             print(str(self))
             user_input = input()
             #TODO: implement undo and redo
-            if(user_input in {"flash","f","show"}):
+            if(user_input in {"flash","f","show", "peek"}):
                 # Because the ANSI forground color may not display when the bg is set
                 # Allows the user to flash the unaltered board state on screen
                 # A bit of a hacky implementation but it works temporarily reset the node to district map
