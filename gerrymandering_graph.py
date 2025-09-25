@@ -781,4 +781,4 @@ class Puzzle:
         print(str(self))
         print("Congratulations! You gerrymandered the map!")
         
-Puzzle(Rectangle(16,16),8,8).play()
+Puzzle(Rectangle(7,7),7,2).play()
