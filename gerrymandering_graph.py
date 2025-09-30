@@ -131,7 +131,7 @@ class DivisableGraph:
     def isValidConnectedSubgraphs(self, min:int, max:int, subgraphs:list[set[int]]) -> bool:
         pass
 
-    def randomConnectedSubgraphs(self, min:int, max:int, rand:random.Random = random.Random(), iter: int = 0) -> list[set[int]]:
+    def randomConnectedSubgraphs(self, min:int, max:int, k:int, rand:random.Random = random.Random(), iter: int = 0) -> list[set[int]]:
         pass
 
     def __str__(self)->str:
@@ -205,10 +205,9 @@ class ConnectedGraph(DivisableGraph):
         # remove all nodes already in the subgraph
         return connected-subgraph
 
-    def randomConnectedSubgraphs(self, min:int, max:int, rand:random.Random = random.Random(), iter: int = 0) -> list[set[int]]:
+    def randomConnectedSubgraphs(self, min:int, max:int, k:int, rand:random.Random = random.Random(), iter: int = 0) -> list[set[int]]:
         if (min>self.nodes):
             raise ValueError("min must be less than the number of nodes")
-        k : int = self.nodes//min
         if (k*max<self.nodes):
             raise ValueError("min and max must be able to cover the number of nodes")
         subgraphs : list[set[int]] = [set() for _ in range(k)]
@@ -239,7 +238,7 @@ class ConnectedGraph(DivisableGraph):
                 # try with new random seeding a few times before totally failing
                 if(iter>100):
                     raise TimeoutError("Could not generate solution in a reasonable time")
-                return self.randomConnectedSubgraphs(min,max,rand,iter+1)
+                return self.randomConnectedSubgraphs(min,max,k,rand,iter+1)
             timeout+=1
         return subgraphs
 
@@ -369,10 +368,11 @@ class DisconnectedGraph(DivisableGraph):
                 return False
         return True
 
-    def randomConnectedSubgraphs(self, min:int, max:int, rand:random.Random = random.Random(), iter: int = 0) -> list[set[int]]:
-        ans = self.left.randomConnectedSubgraphs(min,max,rand,iter)
+    def randomConnectedSubgraphs(self, min:int, max:int,k, rand:random.Random = random.Random(), iter: int = 0) -> list[set[int]]:
+        n = -((k*self.left.nodes)//-self.nodes) #TODO: come up with a better solution
+        ans = self.left.randomConnectedSubgraphs(min,max,n,rand,iter)
         if self.right is not None:
-            ans.extend(self.right.randomConnectedSubgraphs(min,max,rand,iter))
+            ans.extend(list(map(lambda x : set(map(lambda y: y+self.left.nodes,x)),self.right.randomConnectedSubgraphs(min,max,k-n,rand,iter))))
         return ans
 
 class Graph(DivisableGraph):
@@ -431,10 +431,9 @@ class Graph(DivisableGraph):
         # remove all nodes already in the subgraph
         return connected-subgraph
     
-    def randomConnectedSubgraphs(self, min:int, max:int, rand:random.Random = random.Random(), iter: int = 0) -> list[set[int]]:
+    def randomConnectedSubgraphs(self, min:int, max:int,k, rand:random.Random = random.Random(), iter: int = 0) -> list[set[int]]:
         if (min>self.nodes):
             raise ValueError("min must be less than the number of nodes")
-        k : int = self.nodes//min
         if (k*max<self.nodes):
             raise ValueError("min and max must be able to cover the number of nodes")
         subgraphs: list[set[int]] = [set() for i in range(k)]
@@ -470,7 +469,7 @@ class Graph(DivisableGraph):
                 # try with new random seeding a few times before totally failing
                 if(iter>100):
                     raise TimeoutError("Could not generate solution in a reasonable time")
-                return self.randomConnectedSubgraphs(min,max,rand,iter+1)
+                return self.randomConnectedSubgraphs(min,max,k,rand,iter+1)
             timeout+=1
         return subgraphs
 
@@ -795,7 +794,8 @@ class TerminalPuzzle(Puzzle):
         self.p = p
         self.node_to_district = [-1 for i in range(g.nodes)]
         self.districts = [set() for i in range(k)]
-        solution = g.randomConnectedSubgraphs(g.nodes//k,-(g.nodes//-k),rand)
+        solution = g.randomConnectedSubgraphs(g.nodes//k,-(g.nodes//-k),k,rand)#TODO: fix so that this returns k parties or change init params
+        solution.sort(key=len) #make sure we assign the smallest districts to the minority party
         self.solution = solution
         party_districts = [set() for i in range(p)]
         self.parties = [-1 for i in range(g.nodes)]
@@ -809,7 +809,7 @@ class TerminalPuzzle(Puzzle):
             # because ceil(x)>=x: i-1>=(k-i)/(p-1)
             # i-1>=(k-i)/(p-1) ==> pi-p-i+1>=k-i ==> pi >= k+p-1 ==> i>=(k+p-1)/p
             # because we want the minimal i and it is an integer i=ceil((k+p-1)/p)
-            if(i<1+(k-1+p)//p):
+            if(i<(k-1+p)//p):
                 party_districts[0].add(i)
             else:
                 party_districts[1+(i%(p-1))].add(i)
@@ -823,9 +823,7 @@ class TerminalPuzzle(Puzzle):
                 for node in district_order:
                     # This follows the same logic as the minimum number of districts to win
                     # we just replace k with n/k as that is the number of nodes in the district
-                    if(small_districts==j):
-                        _min += 1
-                    if(j<-((_min-1+p)//-p)):
+                    if(j<-((len(district_order)-1+p)//-p)):
                         self.parties[node]=party_order[i]
                     else:
                         self.parties[node]=party_order[1+(j%(p-1))]
@@ -1001,7 +999,12 @@ class TerminalPuzzle(Puzzle):
         self.updateDisplay()
         print("Congratulations! You gerrymandered the map!")
         
-TerminalPuzzle(Rectangle(5,5),7,2).play()
+# TerminalPuzzle(Rectangle(5,5),7,2).play()
+
+TerminalPuzzle(Image([[1,1,1,0],
+                      [0,0,0,0],
+                      [1,1,1,1],
+                      [1,1,1,1]]),3,2).play()
 
 # # print(Rectangle(7,7))
 # print(Image([[0,1,0,1,1,1,1,1],
